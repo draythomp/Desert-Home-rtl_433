@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 Makefile 
 Makefile.in
 .deps
@@ -45,5 +43,4 @@ CMakeFiles
 *.so
 *.0
 
->>>>>>> 2665ef211929ca1b29421e7cf93cac0ae892fb67
 build/
