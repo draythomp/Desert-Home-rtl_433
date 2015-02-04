@@ -426,11 +426,25 @@ static int ws2000_callback(uint8_t bb[BITBUF_ROWS][BITBUF_COLS]) {
 
 // ** Acurite 5n1 functions **
 
-const float acurite_winddirections[] = 
-    { 337.5, 315.0, 292.5, 270.0, 247.5, 225.0, 202.5, 180,
-      157.5, 135.0, 112.5, 90.0, 67.5, 45.0, 22.5, 0.0 };
+char * acurite_winddirections[] = 
+    {"NW",  // 0
+     "WSW", // 1
+     "WNW", // 2
+     "W",   // 3
+     "NNW", // 4
+     "SW",  // 5
+     "N",   // 6
+     "SSW", // 7
+     "ENE", // 8
+     "SE",  // 9
+     "E",   // 10
+     "ESE", // 11
+     "NE",  // 12
+     "SSE", // 13
+     "NNE", // 14
+     "S"};
 
-static int acurite_raincounter = 0;
+
 
 static int acurite_crc(uint8_t row[BITBUF_COLS], int cols) {
     // sum of first n-1 bytes modulo 256 should equal nth byte
@@ -467,16 +481,15 @@ static float acurite_getTemp (uint8_t highbyte, uint8_t lowbyte) {
     return temp;
 }
 
-static int acurite_getWindSpeed (uint8_t highbyte, uint8_t lowbyte) {
+static float acurite_getWindSpeed (uint8_t highbyte, uint8_t lowbyte) {
     // range: 0 to 159 kph
     int highbits = ( highbyte & 0x1F) << 3;
     int lowbits = ( lowbyte & 0x70 ) >> 4;
-    int speed = highbits | lowbits;
+    float speed = (highbits | lowbits) / 2.0;
     return speed;
 }
 
-static float acurite_getWindDirection (uint8_t byte) {
-    // 16 compass points, ccw from (NNW) to 15 (N)
+static char *acurite_getWindDirection (uint8_t byte) {
     int direction = byte & 0x0F;
     return acurite_winddirections[direction];
 }
@@ -519,30 +532,20 @@ static int acurite5n1_callback(uint8_t bb[BITBUF_ROWS][BITBUF_COLS]) {
 
         if ((buf[2] & 0x0F) == 1) {
             // wind speed, wind direction, rainfall
-
-            float rainfall = 0.00;
-            int raincounter = acurite_getRainfallCounter(buf[5], buf[6]);
-            if (acurite_raincounter > 0) {
-                // track rainfall difference after first run
-                rainfall = ( raincounter - acurite_raincounter ) * 0.01;
-            } else {
-                // capture starting counter
-                acurite_raincounter = raincounter;
-            }
-
-            fprintf(stderr, "wind speed: %d kph, ", 
+            fprintf(stderr, "wind speed: %.1f mph, ", 
                 acurite_getWindSpeed(buf[3], buf[4]));
-            fprintf(stderr, "wind direction: %0.1f°, ",
+            fprintf(stderr, "wind direction: %s, ",
                 acurite_getWindDirection(buf[4]));
-            fprintf(stderr, "rain gauge: %0.2f in.\n", rainfall);
+            fprintf(stderr, "rain counter: %d, \n", 
+                acurite_getRainfallCounter(buf[5], buf[6]));
 
         } else if ((buf[2] & 0x0F) == 8) {
             // wind speed, temp, RH
-            fprintf(stderr, "wind speed: %d kph, ", 
+            fprintf(stderr, "wind speed: %.1f mph, ", 
                 acurite_getWindSpeed(buf[3], buf[4]));          
-            fprintf(stderr, "temp: %2.1f° F, ", 
+            fprintf(stderr, "temp: %2.1fF, ", 
                 acurite_getTemp(buf[4], buf[5]));
-            fprintf(stderr, "humidity: %d% RH\n", 
+            fprintf(stderr, "humidity: %d%%\n", 
                 acurite_getHumidity(buf[6]));
         }
     }
@@ -1571,6 +1574,7 @@ int main(int argc, char **argv)
         if (!test_mode_file)
             exit(1);
     }
+    
 #ifndef _WIN32
     sigact.sa_handler = sighandler;
     sigemptyset(&sigact.sa_mask);
