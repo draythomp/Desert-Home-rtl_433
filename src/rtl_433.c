@@ -427,24 +427,58 @@ static int ws2000_callback(uint8_t bb[BITBUF_ROWS][BITBUF_COLS]) {
 // ** Acurite 5n1 functions **
 
 char * acurite_winddirections[] = 
-    {"NW",  // 0
-     "WSW", // 1
-     "WNW", // 2
-     "W",   // 3
-     "NNW", // 4
-     "SW",  // 5
-     "N",   // 6
-     "SSW", // 7
-     "ENE", // 8
-     "SE",  // 9
-     "E",   // 10
-     "ESE", // 11
-     "NE",  // 12
-     "SSE", // 13
-     "NNE", // 14
-     "S"};
+    {"NW",  // 0  315
+     "WSW", // 1  247.5
+     "WNW", // 2  292.5
+     "W",   // 3  270
+     "NNW", // 4  337.5
+     "SW",  // 5  225
+     "N",   // 6  0
+     "SSW", // 7  202.5
+     "ENE", // 8  67.5
+     "SE",  // 9  135
+     "E",   // 10 90
+     "ESE", // 11 112.5
+     "NE",  // 12 45
+     "SSE", // 13 157.5
+     "NNE", // 14 22.5
+     "S"};  // 15 180
+     
+// this is a bitmapped byte to tell if the various styles of reports have
+// come in.  Bit 0 is R1 first type, bit 2 is R1 type 2; the 5n1 sensor only
+// sends two report types
+uint8_t reportsSeen = 0;
+// These are the sensors the the 5 in 1 weather head provides
+struct {
+    float   windSpeed;
+    time_t  wsTime;
+    char *  windDirection;
+    time_t  wdTime;
+    float   temperature;
+    time_t  tTime;
+    int     humidity;
+    time_t  hTime;
+    int     rainCounter;
+    time_t  rcTime;
+} weatherData;
+void acuriteShowit(){
 
-
+    // make sure enough reports have come in before reporting
+    if( reportsSeen >= 3){  // Make sure both reports have come in
+        fprintf(stdout, "{\"windSpeed\":{\"WS\":\"%.1f\",\"t\":\"%d\"},"
+                        "\"windDirection\":{\"WD\":\"%s\",\"t\":\"%d\"},"
+                        "\"temperature\":{\"T\":\"%.1f\",\"t\":\"%d\"},"
+                        "\"humidity\":{\"H\":\"%d\",\"t\":\"%d\"},"
+                        "\"rainCounter\":{\"RC\":\"%d\",\"t\":\"%d\"}}\n",
+                weatherData.windSpeed, (int)weatherData.wsTime,
+                weatherData.windDirection, (int)weatherData.wdTime,
+                weatherData.temperature,  (int)weatherData.tTime,
+                weatherData.humidity,  (int)weatherData.hTime,
+                weatherData.rainCounter,  (int)weatherData.rcTime
+                );
+        fflush(stdout);
+    }
+}
 
 static int acurite_crc(uint8_t row[BITBUF_COLS], int cols) {
     // sum of first n-1 bytes modulo 256 should equal nth byte
@@ -520,35 +554,51 @@ static int acurite5n1_callback(uint8_t bb[BITBUF_ROWS][BITBUF_COLS]) {
             break; // done
         }
     }
-
+    
     if (buf) {
         // decode packet here
-        fprintf(stderr, "Detected Acurite 5n1 sensor\n");
+        if(debug_output)
+            fprintf(stderr, "Detected Acurite 5n1 sensor\n");
         if (debug_output) { 
             for (i=0; i < 8; i++)
                 fprintf(stderr, "%02X ", buf[i]);
             fprintf(stderr, "CRC OK\n");
         }
 
+        time_t seconds = time (NULL);
         if ((buf[2] & 0x0F) == 1) {
             // wind speed, wind direction, rainfall
-            fprintf(stderr, "wind speed: %.1f mph, ", 
-                acurite_getWindSpeed(buf[3], buf[4]));
-            fprintf(stderr, "wind direction: %s, ",
-                acurite_getWindDirection(buf[4]));
-            fprintf(stderr, "rain counter: %d, \n", 
-                acurite_getRainfallCounter(buf[5], buf[6]));
-
+            weatherData.windSpeed = acurite_getWindSpeed(buf[3], buf[4]);
+            weatherData.wsTime = seconds;
+            weatherData.windDirection = acurite_getWindDirection(buf[4]);
+            weatherData.wdTime = seconds;
+            weatherData.rainCounter = acurite_getRainfallCounter(buf[5], buf[6]);
+            weatherData.rcTime = seconds;
+            if(debug_output){
+                fprintf(stderr,"Wind Speed: %.1f, ",weatherData.windSpeed);
+                fprintf(stderr,"Wind Direction: %s, ",weatherData.windDirection);
+                fprintf(stderr,"Rain Counter: %d, ",weatherData.rainCounter);
+                fprintf(stderr,"\n");
+            }
+            reportsSeen |= 0x01; //I've seen report type 2 now
         } else if ((buf[2] & 0x0F) == 8) {
             // wind speed, temp, RH
-            fprintf(stderr, "wind speed: %.1f mph, ", 
-                acurite_getWindSpeed(buf[3], buf[4]));          
-            fprintf(stderr, "temp: %2.1fF, ", 
-                acurite_getTemp(buf[4], buf[5]));
-            fprintf(stderr, "humidity: %d%%\n", 
-                acurite_getHumidity(buf[6]));
+            weatherData.windSpeed = acurite_getWindSpeed(buf[3], buf[4]);          
+            weatherData.wsTime = seconds;
+            weatherData.temperature = acurite_getTemp(buf[4], buf[5]);
+            weatherData.tTime = seconds;
+            weatherData.humidity = acurite_getHumidity(buf[6]);
+            weatherData.hTime = seconds;
+            if(debug_output){
+                fprintf(stderr,"Wind Speed: %.1f, ",weatherData.windSpeed);
+                fprintf(stderr,"Temperature: %.1f, ",weatherData.temperature);
+                fprintf(stderr,"Humidity: %d, ", weatherData.humidity);
+                fprintf(stderr,"\n");
+            }
+            reportsSeen |= 0x02;  // I've seen report 1 type 2 now
         }
     }
+    acuriteShowit();
     //if (debug_output)
     //   debug_callback(bb);
     return 1;
