@@ -1336,6 +1336,19 @@ int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
 
 	libusb_free_device_list(list, 1);
 
+    /* jfm fix device busy error */
+    /* One of Dave's readers supplied this fix for systems that
+       happen to have a device attached to the port
+       This will happen if the machine has already been modified for
+       using one of the SDR devices
+    */
+    r = libusb_set_auto_detach_kernel_driver(dev->devh, 1);
+    // fprintf(stderr,"DEBUG: jfm detach_kernel returned %d\n",r);
+    if (r < 0) {
+        fprintf(stderr,"Problem with auto-detach %s\n", libusb_strerror(r));
+        goto err;
+    }
+    
 	r = libusb_claim_interface(dev->devh, 0);
 	if (r < 0) {
 		fprintf(stderr, "usb_claim_interface error %d\n", r);
