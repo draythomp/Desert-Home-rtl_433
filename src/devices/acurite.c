@@ -85,23 +85,22 @@ static int acurite_crc(uint8_t row[BITBUF_COLS], int cols) {
     // sum of first n-1 bytes modulo 256 should equal nth byte
     int i;
     int sum = 0;
-    // First check the parity of bytes 2-6. The first and second bytes are
+    // Do the checksum
+    for ( i=0; i < cols; i++)
+        sum += row[i];
+    if ( sum % 256 != row[cols] )
+        return 0; // Bail out, it didn't pass
+    // Check the parity of bytes 2-6. The first and second bytes are
     // status and sensor ID, the last byte is the checksum.
     for (i=2; i<cols-1; i++){
         if(acuriteParity(row[i]) == 1){
             if (debug_output) {
                 fprintf(stderr, "Parity error byte %d, %02X\n", i, row[i]);
             }
-            return 0;
+            return 0; // Bail out, it didn't pass parity
         }
     }
-    // Now do the checksum
-    for ( i=0; i < cols; i++)
-        sum += row[i];
-    if ( sum % 256 == row[cols] )
-        return 1;
-    else
-        return 0;
+    return 1;
 }
 
 static int acurite_detect(uint8_t *pRow) {
