@@ -1,3 +1,15 @@
+This is the Desert Home version of rtl_433. I have updated to the latest since
+5/11/2015 and it requires the prior instalation of rtl_sdr. The commit version
+of rtl_sdr I used is 86f9503. 
+
+This combination supports the Acurite 5N1 sensor head rf signal with all the 
+changes suggested so far from people working with it.
+
+This is documented at desert-home.com.
+
+dave
+
+
 rtl_433
 =======
 
