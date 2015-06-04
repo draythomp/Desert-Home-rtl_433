@@ -92,7 +92,7 @@ static int acurite_crc(uint8_t row[BITBUF_COLS], int cols) {
         return 0; // Bail out, it didn't pass
     // Check the parity of bytes 2-6. The first and second bytes are
     // status and sensor ID, the last byte is the checksum.
-    for (i=2; i<cols-1; i++){
+    for (i=1; i<cols-1; i++){
         if(acuriteParity(row[i]) == 1){
             if (debug_output) {
                 fprintf(stderr, "Parity error byte %d, %02X\n", i, row[i]);
